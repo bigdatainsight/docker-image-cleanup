@@ -1,27 +1,21 @@
-#!/bin/bash -x
+#!/bin/bash
 
-
-##Removing stopped container
-
-docker ps -a | grep Exited | awk '{print $1}' | xargs docker rm
-
-##If you do not want to remove all container you can have filter for days and weeks old like below
-#docker ps -a | grep Exited | grep "days ago" | awk '{print $1}' | xargs docker rm
-#docker ps -a | grep Exited | grep "weeks ago" | awk '{print $1}' | xargs docker rm
-
-##Removing Dangling images
-##There are the layers images which are being created during building docker image. This is a great way to recover the spaces used by old and unused layers.
-
+# remove exited containers:
+docker rm -v $(docker ps --filter status=dead --filter status=exited -aq)
+    
+# removing Dangling images
 docker rmi $(docker images -f "dangling=true" -q)
+docker images --no-trunc | grep '<none>' | awk '{ print $3 }' | xargs -r docker rmi
 
-##Removing images of perticular pattern For example
-##Here i am removing images which has SNAPSHOT with it.
+# remove unused volumes:
+# find '/var/lib/docker/volumes/' -mindepth 1 -maxdepth 1 -type d | grep -vFf <(
+#   docker ps -aq | xargs docker inspect | jq -r '.[] | .Mounts | .[] | .Name | select(.)'
+# ) | xargs -r rm -fr
+# To the the same thing as above with docker 1.9
+docker volume ls -f dangling=true | awk '{ print $2 }' | xargs docker volume rm
 
-docker rmi $(docker images | grep SNAPSHOT | awk '{print $3}')
-
-##Removing Weeks old images
-
-docker images | grep "weeks ago" | grep -v ubuntu | grep -v alpine | grep -v java | awk '{print $3}' | xargs docker rmi
+# Removing old images
+docker images | grep "months ago" | grep -v jboss | grep -v ecm | grep -v edb | awk '{print $3}' | xargs docker rmi
+docker images | grep "weeks ago" | grep -v jboss | grep -v ecm | grep -v edb | awk '{print $3}' | xargs docker rmi
 
 ##Similarly You can remove days, months old images too.
-
